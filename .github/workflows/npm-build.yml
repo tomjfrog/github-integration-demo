@@ -38,6 +38,7 @@ jobs:
           JF_URL: ${{ vars.JF_URL }}/
           JF_PROJECT: ${{ vars.JF_PROJECT }}
         with:
+            version: 2.71.5
             oidc-provider-name: ${{ env.OIDC_INTEGRATION_NAME }}
             oidc-audience: ${{ env.OIDC_AUDIENCE }}
       
