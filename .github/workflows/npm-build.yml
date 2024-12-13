@@ -1,0 +1,152 @@
+name: Push NPM Build to Artifactory
+on: 
+  workflow_dispatch:
+
+permissions:
+  actions: read # for detecting the Github Actions environment.
+  id-token: write # for creating OIDC tokens for signing.
+  packages: write # for uploading attestations.
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      JF_PROJECT: ${{ vars.JF_PROJECT_KEY }}
+      JF_URL: https://${{ vars.JF_URL }}/
+      NPM_VIRTUAL: ghdemo-npm
+      BUILD_NAME: ghdemo-build
+      OIDC_INTEGRATION_NAME: github-oidc-integration
+      OIDC_AUDIENCE: jfrog-github
+      PRODUCTION_REPO_NAME: npm-prod-local
+      DOCKER_REGISTRY: tomjfrog.jfrog.io
+      DOCKER_REPOSITORY: ghdemo-docker-local
+      DOCKER_IMAGE_NAME: ghdemo-image
+    defaults:
+      run:
+        working-directory: ./
+    steps:
+      # This action checks out the code from the repository
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Download the JFrog CLI and configure using JFrog Project and OIDC provider 
+      - uses: jfrog/setup-jfrog-cli@v4
+        name: Setup JFrog CLI
+        id: setup-cli
+        env:
+          JF_URL: ${{ vars.JF_URL }}/
+          JF_PROJECT: ${{ vars.JF_PROJECT }}
+        with:
+            oidc-provider-name: ${{ env.OIDC_INTEGRATION_NAME }}
+            oidc-audience: ${{ env.OIDC_AUDIENCE }}
+      
+      # This command adds a new server configuration to the JFrog CLI   
+      - name: Validate JF CLI Version
+        run: |
+          jf -v
+      
+          # Ping the JFrog Platfrom instnace 
+      - name: Validate Connectivity to JFrog Platform
+        run: |
+          jf rt ping
+      
+      # Configure JFrog CLI for NPM 
+      # - name: Configure JFrog CLI for NPM Project
+      #   run: |
+      #     jf npmc --repo-deploy=${{ env.NPM_VIRTUAL }} --repo-resolve=${{ env.NPM_VIRTUAL }}
+      
+      # Check to Ensure Dependencies Will Make it Past Curation
+      # - name: Run Curation Audit
+      #   run: |
+      #     jf curation-audit
+      
+      # Run Audit
+      # - name: Run Dependency Audit
+      #   continue-on-error: true
+      #   run: |
+      #     jf audit --vuln --fail=false
+      
+      # NPM Install using the CLI  
+      # - name: NPM Install using the CLI
+      #   run: |
+      #     jf npm install --build-name=${{ env.BUILD_NAME }} --build-number=1.0.${{github.run_number}}
+
+      # NPM Package using the CLI  
+      # - name: NPM Install using the CLI
+      #   run: |
+      #     jf npm package --build-name=${{ env.BUILD_NAME }} --build-number=1.0.${{github.run_number}}
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          registry: tomjfrog.jfrog.io
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ steps.setup-cli.outputs.oidc-token }}
+      
+      - name: Build and tag Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: false
+          build-args: |
+            "NPMRC_ENCODED=${{ secrets.NPMRC_ENCODED }}"
+          tags: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ env.DOCKER_IMAGE_NAME}}:latest
+      
+      - name: Publish Docker Image
+        run: |
+          jf docker push  \
+          --build-name=${{ env.BUILD_NAME }} \
+          --build-number=1.0.${{github.run_number}} \
+          ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ env.DOCKER_IMAGE_NAME}}:latest
+      
+      # Add GitHub Data to BuildInfo
+      # - name: Add GitHub Data to BuildInfo
+      #   run: |
+      #     jf rt build-add-git ${{ env.BUILD_NAME }}  1.0.${{github.run_number}}
+      
+      # Collect all Environmental information for NPM Build
+      # - name: Collect all Environmental information for NPM Build
+      #   run: |
+      #     jf rt build-collect-env ${{ env.BUILD_NAME }}  1.0.${{github.run_number}}
+      
+      # Using NPM Publish to uplaod the NPM Build
+      # - name: Publish Build Artifact
+      #   run: |
+      #     jf npm publish --build-name=${{ env.BUILD_NAME }} --build-number=1.0.${{github.run_number}}
+      
+      # Publish the BuildInfo into Artifactory 
+      # - name: Publish Build Info
+      #   run: |
+      #     jf rt build-publish ${{ env.BUILD_NAME }}  1.0.${{github.run_number}}
+      
+      # Path Triage
+      - name: Path Triage
+        run: |
+          PATH=$(pwd)
+          echo $PATH
+
+
+      # Path Triage
+      - name: Path Triage
+        run: |
+          ls -lah
+      
+      # Run JF Scan on NPM Artifact 
+      # - name: Scan Artifact
+      #   run: |
+      #     jf scan *.tgz --vuln
+      
+      # Run JF Scan on NPM Artifact 
+      - name: Scan Artifact
+        run: |
+          jf docker scan ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ env.DOCKER_IMAGE_NAME}}:latest --vuln
+      
+      # Scan the NPM Build with Xray 
+      - name: Scan BuildInfo
+        run: |
+           jf build-scan ${{ env.BUILD_NAME }}  1.0.${{github.run_number}} --vuln
+      
+      # Promote the Build from Dev to Production 
+      # - run: |
+      #     jf rt build-promote ${{ env.BUILD_NAME }} 1.0.${{github.run_number}} ${{ env.PRODUCTION_REPO_NAME }}  --status=production
