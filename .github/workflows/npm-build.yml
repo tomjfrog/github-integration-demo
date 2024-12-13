@@ -50,12 +50,7 @@ jobs:
           # Ping the JFrog Platfrom instnace 
       - name: Validate Connectivity to JFrog Platform
         run: |
-          jf rt ping
-      
-      # Configure JFrog CLI for NPM 
-      # - name: Configure JFrog CLI for NPM Project
-      #   run: |
-      #     jf npmc --repo-deploy=${{ env.NPM_VIRTUAL }} --repo-resolve=${{ env.NPM_VIRTUAL }}
+          jf rt ping   
       
       # Check to Ensure Dependencies Will Make it Past Curation
       # - name: Run Curation Audit
@@ -67,12 +62,7 @@ jobs:
         continue-on-error: true
         run: |
           jf audit --vuln --fail=false
-      
-      # NPM Install using the CLI  
-      # - name: NPM Install using the CLI
-      #   run: |
-      #     jf npm install --build-name=${{ env.BUILD_NAME }} --build-number=1.0.${{github.run_number}}
-
+    
       # NPM Package using the CLI  
       # - name: NPM Install using the CLI
       #   run: |
@@ -102,14 +92,14 @@ jobs:
           ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ env.DOCKER_IMAGE_NAME}}:latest
       
       # Add GitHub Data to BuildInfo
-      # - name: Add GitHub Data to BuildInfo
-      #   run: |
-      #     jf rt build-add-git ${{ env.BUILD_NAME }}  1.0.${{github.run_number}}
+      - name: Add GitHub Data to BuildInfo
+        run: |
+          jf rt build-add-git ${{ env.BUILD_NAME }}  1.0.${{github.run_number}}
       
       # Collect all Environmental information for NPM Build
-      # - name: Collect all Environmental information for NPM Build
-      #   run: |
-      #     jf rt build-collect-env ${{ env.BUILD_NAME }}  1.0.${{github.run_number}}
+      - name: Collect all Environmental information for NPM Build
+        run: |
+          jf rt build-collect-env ${{ env.BUILD_NAME }}  1.0.${{github.run_number}}
       
       # Using NPM Publish to uplaod the NPM Build
       # - name: Publish Build Artifact
@@ -117,26 +107,9 @@ jobs:
       #     jf npm publish --build-name=${{ env.BUILD_NAME }} --build-number=1.0.${{github.run_number}}
       
       # Publish the BuildInfo into Artifactory 
-      # - name: Publish Build Info
-      #   run: |
-      #     jf rt build-publish ${{ env.BUILD_NAME }}  1.0.${{github.run_number}}
-      
-      # Path Triage
-      - name: Path Triage
+      - name: Publish Build Info
         run: |
-          PATH=$(pwd)
-          echo $PATH
-
-
-      # Path Triage
-      - name: Path Triage
-        run: |
-          ls -lah
-      
-      # Run JF Scan on NPM Artifact 
-      # - name: Scan Artifact
-      #   run: |
-      #     jf scan *.tgz --vuln
+          jf rt build-publish ${{ env.BUILD_NAME }}  1.0.${{github.run_number}}
       
       # Run JF Scan on NPM Artifact 
       - name: Scan Artifact
