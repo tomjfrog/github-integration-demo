@@ -53,9 +53,9 @@ jobs:
           jf rt ping   
       
       # Check to Ensure Dependencies Will Make it Past Curation
-      # - name: Run Curation Audit
-      #   run: |
-      #     jf curation-audit
+      - name: Run Curation Audit
+        run: |
+          jf curation-audit
       
       # Run Audit
       - name: Run Dependency Audit
