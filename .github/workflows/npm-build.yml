@@ -119,7 +119,7 @@ jobs:
       # Scan the NPM Build with Xray 
       - name: Scan BuildInfo
         run: |
-           jf build-scan ${{ env.BUILD_NAME }}  1.0.${{github.run_number}} --vuln
+           jf build-scan ${{ env.BUILD_NAME }} 1.0.${{github.run_number}} --vuln
       
       # Promote the Build from Dev to Production 
       # - run: |
