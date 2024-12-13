@@ -47,10 +47,14 @@ jobs:
         run: |
           jf -v
       
-          # Ping the JFrog Platfrom instnace 
+      # Ping the JFrog Platfrom instnace 
       - name: Validate Connectivity to JFrog Platform
         run: |
-          jf rt ping   
+          jf rt ping
+      
+      # Configure JFrog CLI for NPM 
+      - run: |
+          jf npmc --repo-deploy=${{ env.NPM_VIRTUAL }} --repo-resolve=${{ env.NPM_VIRTUAL }}
       
       # Check to Ensure Dependencies Will Make it Past Curation
       - name: Run Curation Audit
