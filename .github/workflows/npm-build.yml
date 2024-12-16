@@ -12,6 +12,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
+      JFROG_CLI_LOG_LEVEL: DEBUG
+      CI: true
       JF_PROJECT: ${{ vars.JF_PROJECT_KEY }}
       JF_URL: https://${{ vars.JF_URL }}/
       NPM_VIRTUAL: ghdemo-npm
