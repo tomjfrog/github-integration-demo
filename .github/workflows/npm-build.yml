@@ -105,6 +105,7 @@ jobs:
         run: |
           jf rt build-collect-env ${{ env.BUILD_NAME }}  1.0.${{github.run_number}}
       
+      # DEPREACATED: Resolving and installing deps and app in Docker image definition
       # Using NPM Publish to uplaod the NPM Build
       # - name: Publish Build Artifact
       #   run: |
