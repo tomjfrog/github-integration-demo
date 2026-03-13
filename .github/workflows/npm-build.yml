@@ -46,8 +46,6 @@ jobs:
           JF_URL: ${{ vars.JF_URL }}/
           JF_PROJECT: ${{ vars.JF_PROJECT }}
           JF_GIT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          JFROG_CLI_BUILD_NAME: ${{ env.BUILD_NAME }}
-          JFROG_CLI_BUILD_NUMBER: ${{ github.run_number }}
         with:
             version: latest
             oidc-provider-name: ${{ env.OIDC_INTEGRATION_NAME }}
@@ -107,12 +105,14 @@ jobs:
         run: |
           jf rt build-docker-create \
           --image-file=image-file.txt \
+          --build-name=${{ env.BUILD_NAME }} \
+          --build-number=${{ github.run_number }} \
           ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}
       
       # Publish the BuildInfo into Artifactory 
       - name: Publish Build Info
         run: |
-          jf rt build-publish --collect-env --collect-git-info ${{ env.JFROG_CLI_BUILD_NAME }} ${{ env.JFROG_CLI_BUILD_NUMBER }} 
+          jf rt build-publish --collect-env --collect-git-info ${{ env.BUILD_NAME }} 1.0.${{ github.run_number }} 
       
       # Run JF Scan on NPM Artifact 
       - name: Scan Artifact
@@ -122,8 +122,8 @@ jobs:
       # Scan the NPM Build with Xray 
       - name: Scan BuildInfo
         run: |
-           jf build-scan ${{ env.JFROG_CLI_BUILD_NAME }} ${{ env.JFROG_CLI_BUILD_NUMBER }} --vuln
+           jf build-scan ${{ env.BUILD_NAME }} 1.0.${{ github.run_number }} --vuln
       
       # Promote the Build from Dev to Production 
       # - run: |
-      #     jf rt build-promote ${{ env.JFROG_CLI_BUILD_NAME }} ${{ env.JFROG_CLI_BUILD_NUMBER }} ${{ env.PRODUCTION_REPO_NAME }}  --status=production
+      #     jf rt build-promote ${{ env.BUILD_NAME }} 1.0.${{ github.run_number }} ${{ env.PRODUCTION_REPO_NAME }}  --status=production
