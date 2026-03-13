@@ -46,6 +46,8 @@ jobs:
           JF_URL: ${{ vars.JF_URL }}/
           JF_PROJECT: ${{ vars.JF_PROJECT }}
           JF_GIT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JFROG_CLI_BUILD_NAME: ${{ env.BUILD_NAME }}
+          JFROG_CLI_BUILD_NUMBER: ${{ github.run_number }}
         with:
             version: latest
             oidc-provider-name: ${{ env.OIDC_INTEGRATION_NAME }}
