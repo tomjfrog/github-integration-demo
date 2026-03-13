@@ -33,7 +33,12 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Download the JFrog CLI and configure using JFrog Project and OIDC provider 
+      # Setup Buildx for Docker
+      - name: Docker Setup Buildx
+        uses: docker/setup-buildx-action@v3.12.0
+
+      # Download the JFrog CLI and configure using JFrog Project and OIDC provider
+      # Configuration will auto publish the BuildInfo into Artifactory 
       - uses: jfrog/setup-jfrog-cli@v4
         name: Setup JFrog CLI
         id: setup-cli
@@ -45,17 +50,21 @@ jobs:
             version: latest
             oidc-provider-name: ${{ env.OIDC_INTEGRATION_NAME }}
             oidc-audience: ${{ env.OIDC_AUDIENCE }}
-      
-      # This command adds a new server configuration to the JFrog CLI   
-      - name: Validate JF CLI Version
-        run: |
-          jf -v
+            disable-auto-build-publish: true
       
       # Ping the JFrog Platfrom instnace 
       - name: Validate Connectivity to JFrog Platform
         run: |
           jf rt ping
-      
+
+      # Log in to Artifactory-based private registry to push the Docker image
+      - name: Log in to Docker Registry
+        uses: docker/login-action@v4
+        with:
+          registry: tomjfrog.jfrog.io
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ steps.setup-cli.outputs.oidc-token }}
+
       # Configure JFrog CLI for NPM 
       - run: |
           jf npmc --repo-deploy=${{ env.NPM_VIRTUAL }} --repo-resolve=${{ env.NPM_VIRTUAL }}
@@ -70,62 +79,49 @@ jobs:
         continue-on-error: true
         run: |
           jf audit --vuln --fail=false
-    
-      # NPM Package using the CLI  
-      # - name: NPM Install using the CLI
-      #   run: |
-      #     jf npm package --build-name=${{ env.BUILD_NAME }} --build-number=1.0.${{github.run_number}}
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          registry: tomjfrog.jfrog.io
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ steps.setup-cli.outputs.oidc-token }}
-      
+            
       - name: Build and tag Docker image
         uses: docker/build-push-action@v6
         id: build-and-push
         with:
           context: .
-          push: false
+          push: true
+          provenance: true
           build-args: |
             "NPMRC_ENCODED=${{ secrets.NPMRC_ENCODED }}"
-          tags: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ env.DOCKER_IMAGE_NAME}}:latest
-      
+          tags: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ env.DOCKER_IMAGE_NAME }}:${{ github.run_number }}
 
       - name: Generate Generic Attestations
-        uses: actions/attest@v4.1.0
+        uses: actions/attest@v4
         with:
-          subject-name: oci://${{ vars.JF_DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY}}/${{ env.IMAGE_NAME }}
+          subject-name: oci://${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ env.DOCKER_IMAGE_NAME }}
           subject-digest: ${{ steps.build-and-push.outputs.digest }}
-      
-      # Add GitHub Data to BuildInfo
-      - name: Add GitHub Data to BuildInfo
+
+      - name: Create image file for build-docker-create
         run: |
-          jf rt build-add-git ${{ env.BUILD_NAME }}  1.0.${{github.run_number}}
+          echo "${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ env.DOCKER_IMAGE_NAME }}:${{ github.run_number }}@${{ steps.build-and-push.outputs.digest }}" > image-file.txt
       
-      # Collect all Environmental information for NPM Build
-      - name: Collect all Environmental information for NPM Build
+      - name: Add Image Metadata to Build Info
         run: |
-          jf rt build-collect-env ${{ env.BUILD_NAME }}  1.0.${{github.run_number}}
-      
+          jf rt build-docker-create \
+          --image-file=image-file.txt \
+          ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}
       
       # Publish the BuildInfo into Artifactory 
       - name: Publish Build Info
         run: |
-          jf rt build-publish --collect-env --collect-git-info ${{ env.BUILD_NAME }}  1.0.${{github.run_number}} 
+          jf rt build-publish --collect-env --collect-git-info ${{ env.JFROG_CLI_BUILD_NAME }} ${{ env.JFROG_CLI_BUILD_NUMBER }} 
       
       # Run JF Scan on NPM Artifact 
       - name: Scan Artifact
         run: |
-          jf docker scan ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ env.DOCKER_IMAGE_NAME}}:latest --vuln
+          jf docker scan ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ env.DOCKER_IMAGE_NAME }}:${{ github.run_number }} --vuln
       
       # Scan the NPM Build with Xray 
       - name: Scan BuildInfo
         run: |
-           jf build-scan ${{ env.BUILD_NAME }} 1.0.${{github.run_number}} --vuln
+           jf build-scan ${{ env.JFROG_CLI_BUILD_NAME }} ${{ env.JFROG_CLI_BUILD_NUMBER }} --vuln
       
       # Promote the Build from Dev to Production 
       # - run: |
-      #     jf rt build-promote ${{ env.BUILD_NAME }} 1.0.${{github.run_number}} ${{ env.PRODUCTION_REPO_NAME }}  --status=production
+      #     jf rt build-promote ${{ env.JFROG_CLI_BUILD_NAME }} ${{ env.JFROG_CLI_BUILD_NUMBER }} ${{ env.PRODUCTION_REPO_NAME }}  --status=production
