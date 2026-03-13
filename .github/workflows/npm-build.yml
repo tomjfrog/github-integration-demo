@@ -107,14 +107,17 @@ jobs:
           --image-file=image-file.txt \
           --build-name=${{ env.BUILD_NAME }} \
           --build-number=${{ github.run_number }} \
-          ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}
+          ${{ env.DOCKER_REPOSITORY }}
       
       # Publish the BuildInfo into Artifactory 
       - name: Publish Build Info
         run: |
-          jf rt build-publish --collect-env --collect-git-info ${{ env.BUILD_NAME }} 1.0.${{ github.run_number }} 
+          jf rt build-publish --collect-env --collect-git-info ${{ env.BUILD_NAME }} ${{ github.run_number }} 
       
-      # Run JF Scan on NPM Artifact 
+      # Run JF Scan on Docker Artifact 
+      - name: Pull image for scan
+        run: |
+          docker pull ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ env.DOCKER_IMAGE_NAME }}:${{ github.run_number }}
       - name: Scan Artifact
         run: |
           jf docker scan ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ env.DOCKER_IMAGE_NAME }}:${{ github.run_number }} --vuln
@@ -122,8 +125,8 @@ jobs:
       # Scan the NPM Build with Xray 
       - name: Scan BuildInfo
         run: |
-           jf build-scan ${{ env.BUILD_NAME }} 1.0.${{ github.run_number }} --vuln
+           jf build-scan ${{ env.BUILD_NAME }} ${{ github.run_number }} --vuln
       
       # Promote the Build from Dev to Production 
       # - run: |
-      #     jf rt build-promote ${{ env.BUILD_NAME }} 1.0.${{ github.run_number }} ${{ env.PRODUCTION_REPO_NAME }}  --status=production
+      #     jf rt build-promote ${{ env.BUILD_NAME }} ${{ github.run_number }} ${{ env.PRODUCTION_REPO_NAME }}  --status=production
