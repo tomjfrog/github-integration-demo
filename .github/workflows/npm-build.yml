@@ -79,7 +79,11 @@ jobs:
         continue-on-error: true
         run: |
           jf audit --vuln --fail=false
-            
+
+      - name: Decode NPMRC secret for Docker BuildKit
+        run: |
+          echo "${{ secrets.NPMRC_ENCODED }}" | base64 -d > "${RUNNER_TEMP}/npmrc"
+
       - name: Build and tag Docker image
         uses: docker/build-push-action@v6
         id: build-and-push
@@ -87,8 +91,8 @@ jobs:
           context: .
           push: true
           provenance: true
-          build-args: |
-            "NPMRC_ENCODED=${{ secrets.NPMRC_ENCODED }}"
+          secret-files: |
+            npmrc=${{ runner.temp }}/npmrc
           tags: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ env.DOCKER_IMAGE_NAME }}:${{ github.run_number }}
 
       - name: Generate Generic Attestations
