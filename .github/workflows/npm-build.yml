@@ -79,14 +79,23 @@ jobs:
           registry: tomjfrog.jfrog.io
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ steps.setup-cli.outputs.oidc-token }}
-      
+
+      # BuildKit mounts this file only during RUN; it is not copied into image layers.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Decode NPMRC secret for Docker BuildKit
+        run: |
+          echo "${{ secrets.NPMRC_ENCODED }}" | base64 -d > "${RUNNER_TEMP}/npmrc"
+
       - name: Build and tag Docker image
         uses: docker/build-push-action@v4
         with:
           context: .
           push: false
-          build-args: |
-            "NPMRC_ENCODED=${{ secrets.NPMRC_ENCODED }}"
+          load: true
+          secret-files: |
+            npmrc=${{ runner.temp }}/npmrc
           tags: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}/${{ env.DOCKER_IMAGE_NAME}}:latest
       
       - name: Publish Docker Image
